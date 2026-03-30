@@ -27,7 +27,8 @@ print("\n--- [Phase 2/4] Extracting Embeddings ---")
 for nombre, info in modelos_info.items():
     print(f"Processing {nombre}...")
     # If we already have the .h5 files saved, the function will skip this automatically.
-    extract_embeddings(info["repo"], dataset_paper, config=(True if info["quant"]=="4bit" else None))
+    extract_embeddings(info["repo"], dataset_paper, suffix="_paper", config=(True if info["quant"]=="4bit" else None))
+    extract_embeddings(info["repo"], dataset_regional, suffix="_regional", config=(True if info["quant"]=="4bit" else None))
 
 
 # 3. PROBE EXECUTION
@@ -37,15 +38,19 @@ results = {'Llama3': {}, 'Mistral': {}, 'Qwen': {}}
 
 print("\n--- [Phase 3/4] Training Linear and Non-Linear Probes ---")
 for nombre, info in modelos_info.items():
-    ruta_h5 = f"matriz_{info['repo'].replace('/', '_')}.h5"
+    repo_clean = info['repo'].replace('/', '_')
+    path_paper = f"matriz_{repo_clean}_paper.h5"
+    path_regional = f"matriz_{repo_clean}_regional.h5"
+
 
     # PAPER REPLICATION, HAVERSINE, NO_LINEAL
     # Here we activate non-linear to verify the paper's hypothesis. We also activate haversine to get the error in kilometers.
-    res_paper = train( ruta_h5, dataset_paper, dataset_regional=False, haversine=True, no_lineal=True )
+    res_paper = train( path_paper, dataset_paper, dataset_regional=False, haversine=True, no_lineal=True )
    
     # REGIONAL BIAS (USA, Europe, China)
-    # Here we are only interested in the linear probe (Ridge) to compare regions and we use the regional dataset. 
-    res_regional = train( ruta_h5, dataset_regional, dataset_regional=True, haversine=False, no_lineal=False)
+    # Here we are only interested in the linear probe (Ridge) to compare regions and we use the regional dataset. We also activate
+    # haversine to get the error in kilometers, which is more intuitive for the bias analysis. 
+    res_regional = train( path_regional, dataset_regional, dataset_regional=True, haversine=True, no_lineal=False)
         
     # We save everything in the global dictionary
     results[nombre].update(res_paper)
@@ -58,7 +63,7 @@ for nombre, info in modelos_info.items():
 print("\n--- [Phase 4/4] Generating Visualizations ---")
 
 # --- STEP 1: Global Performance (Paper Dataset) ---
-# We see how the 3 models perform on a global scale
+# We see how Llama-3 and Mistral perform on a global scale
 plot.plot_paper_comparison(results)
 
 # --- STEP 2: Linearity Test ---
