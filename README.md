@@ -26,16 +26,16 @@ This project introduces the following contributions:
 This section presents the empirical findings from our replication and extension experiments.
 
 ### 1. Global Spatial Representation (Replication)
-![Global Spatial Representation Accuracy]<img width="702" height="453" alt="Captura de pantalla 2026-03-29 162110" src="https://github.com/user-attachments/assets/8d104993-77a0-4460-92d3-98e31c7fe78f" />
+<img width="702" height="453" alt="Captura de pantalla 2026-03-29 162110" src="https://github.com/user-attachments/assets/8d104993-77a0-4460-92d3-98e31c7fe78f" />
 
 Following the methodology of the original study, we extracted the activations from the last token of each entity to evaluate the models' spatial representations. The results confirm the original thesis: both Llama-3 and Mistral develop genuine internal maps, achieving an $R^2 \approx 0.8$ coefficient in their middle layers and showing nearly identical behavior. 
 
 However, we observed that the precision of the linear probe drops considerably in the final layers. This decline likely occurs because the models shift their focus entirely toward predicting the next word, shifting focus away from maintaining the internal spatial map.
 
 ### 2. The Linearity Hypothesis
-![Linearity Test Llama-3]<img width="1153" height="693" alt="Captura de pantalla 2026-03-29 145157" src="https://github.com/user-attachments/assets/5314f4c9-fd7b-4653-8dbc-5af80ecf0962" />
+<img width="1153" height="693" alt="Captura de pantalla 2026-03-29 145157" src="https://github.com/user-attachments/assets/5314f4c9-fd7b-4653-8dbc-5af80ecf0962" />
 
-![Linearity Test Mistral]<img width="1118" height="712" alt="Captura de pantalla 2026-03-29 145208" src="https://github.com/user-attachments/assets/5a30f928-ce40-410b-b7ac-ee7608153556" />
+<img width="1118" height="712" alt="Captura de pantalla 2026-03-29 145208" src="https://github.com/user-attachments/assets/5a30f928-ce40-410b-b7ac-ee7608153556" />
 
 To verify how this spatial knowledge is structured, we compared the standard linear probe (Ridge) against a non-linear probe based on a Multilayer Perceptron (MLP).
 
@@ -44,27 +44,27 @@ In the middle layers, both probes show nearly identical results ($R^2 \approx 0.
 Interestingly, in the final layers, the MLP is capable of adapting to the spatial deformation and maintaining high precision. This demonstrates that the information remains present at the end of the processing, but an anisotropic deformation makes it inaccessible through purely linear methods.
 
 ### 3. Physical Error Interpretation (Haversine Distance)
-![Median Spatial Prediction Error]<img width="717" height="456" alt="Captura de pantalla 2026-03-29 162320" src="https://github.com/user-attachments/assets/4401e191-63e0-49cf-8e2c-75370680e89d" />
+<img width="717" height="456" alt="Captura de pantalla 2026-03-29 162320" src="https://github.com/user-attachments/assets/4401e191-63e0-49cf-8e2c-75370680e89d" />
 
 To provide a real-world dimension beyond the $R^2$ coefficient, we implemented the Haversine formula to calculate the actual distance in kilometers between the predicted and actual coordinates.
 
 In their optimal layers, the models achieved median errors between 1,500 and 2,000 km While this margin may seem high at a human scale, it is a remarkable result considering the immensity of the Earth's surface (510 million square kilometers), reinforcing the existence of a structured mental map rather than mere coordinate memorization.
 
 ### 4. Regional Bias and Data Volume Paradox
-![Best Spatial Accuracy by Region]<img width="770" height="482" alt="Captura de pantalla 2026-03-29 153938" src="https://github.com/user-attachments/assets/48b1964e-16a5-46a6-8cd7-a17f32466ff2" />
+<img width="770" height="482" alt="Captura de pantalla 2026-03-29 153938" src="https://github.com/user-attachments/assets/48b1964e-16a5-46a6-8cd7-a17f32466ff2" />
 
 To evaluate geographic biases, we constructed a balanced dataset comparing the USA, Europe, and China, and incorporated Qwen-2.5-7B into the analysis.
 
 Firstly, we evaluated the models' layer-by-layer Haversine error across three distinct regions:
 
 #### Europe
-![Spatial Error by Layer: EUROPE]<img width="767" height="479" alt="Captura de pantalla 2026-03-29 153913" src="https://github.com/user-attachments/assets/6f413105-b575-4bd4-a8ba-183f8d9ef6f2" />
+<img width="767" height="479" alt="Captura de pantalla 2026-03-29 153913" src="https://github.com/user-attachments/assets/6f413105-b575-4bd4-a8ba-183f8d9ef6f2" />
 
 #### United States (USA)
-![Spatial Error by Layer: USA]<img width="762" height="480" alt="Captura de pantalla 2026-03-29 153922" src="https://github.com/user-attachments/assets/d255f8f3-acde-4e21-8e09-e004510993b4" />
+<img width="762" height="480" alt="Captura de pantalla 2026-03-29 153922" src="https://github.com/user-attachments/assets/d255f8f3-acde-4e21-8e09-e004510993b4" />
 
 #### China
-![Spatial Error by Layer: CHINA]<img width="747" height="478" alt="Captura de pantalla 2026-03-29 153932" src="https://github.com/user-attachments/assets/ff407bc6-e55f-49a7-8cf5-e94c7c4f3523" />
+<img width="747" height="478" alt="Captura de pantalla 2026-03-29 153932" src="https://github.com/user-attachments/assets/ff407bc6-e55f-49a7-8cf5-e94c7c4f3523" />
 
 
 Then, we compared the best results of each model in each region. The initial results were surprising: Europe showed the lowest physical error, followed by China, with the US in last place.
