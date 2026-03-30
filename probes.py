@@ -48,79 +48,102 @@ def haversine_distance(y_true, y_pred):
 
 
 def train(ruta_h5, dataset, dataset_regional, haversine, no_lineal):
-    
-    #We load the embeddings from the .h5 file
-    with h5py.File(ruta_h5, 'r') as archivo_h5:
-        dset = archivo_h5['embeddings'][:].astype(np.float32)
 
-    num_layers = dset.shape[1]
-    
+    # DATA SPLITTING
     indices_split = {}
-    
+
     #In case of using the regional dataset, we will split the data by region.
     if dataset_regional:
         names_reg = ['USA', 'Europa', 'China']
         columns = ['is_USA', 'is_Europa', 'is_China']
-       
+
         for col, reg_name in zip(columns, names_reg):
             # We create a boolean mask which has a True or a False depending on if the city belongs to the region or not
             mask = dataset[col].values
             # We get the indices of the cities that belong to the region (the ones where the mask is True)
-            indices_reg = np.where(mask)[0] 
+            indices_reg = np.where(mask)[0]
             # We split the indices of the cities that belong to the region into a train set and a test set, with a fixed random seed for reproducibility
-            idx_tr, idx_te = train_test_split(indices_reg, test_size=0.2, random_state=31) 
+            idx_tr, idx_te = train_test_split(indices_reg, test_size=0.2, random_state=31)
             indices_split[reg_name] = (idx_tr, idx_te) #We save the train and test indices for each region in a dictionary
     else:
         # If we are using the dataset from the paper, we will use all the cities given in the dataset.
-        # We are using names_reg = ['Dataset_Paper'] just to be able to use the same function for both experiments. Because the logic of 
-        # the training is almost the same. 
+        # We are using names_reg = ['Dataset_Paper'] just to be able to use the same function for both experiments. Because the logic of
+        # the training is almost the same.
         names_reg = ['Dataset_Paper']
-        indices_reg = np.arange(len(dataset)) 
+        indices_reg = np.arange(len(dataset))
         idx_tr, idx_te = train_test_split(indices_reg, test_size=0.2, random_state=31)
         indices_split['Dataset_Paper'] = (idx_tr, idx_te)
 
 
     #In order to be consistent, we will create the same structure of results for both experiments, even if we are not going to use all
-    #the options in each experiment. 
+    #the options in each experiment.
     results = {reg: {'lin': [], 'non': [], 'km': []} for reg in names_reg}
 
-    #We process all the layers
-    for layer_idx in tqdm(range(num_layers)):
-        #In the case of the regional dataset, we will train a model for each region. That is why our reg_name has the name of each region. In the case 
-        #of the dataset from the paper, we will train only one model with all the cities. That is why our reg_name only has one value: 'Dataset_Paper'.
-        for reg_name in names_reg:
-            idx_tr, idx_te = indices_split[reg_name] 
+    # MODEL PROBING (LAYER BY LAYER)
+    
+    #We open the H5 file in read mode without loading the entire dataset into RAM
+    with h5py.File(ruta_h5, 'r') as archivo_h5:
+      num_layers = archivo_h5['embeddings'].shape[1]
+
+      #We process all the layers
+      for layer_idx in tqdm(range(num_layers)):
+            # Load only the current layer's embeddings
+            actual_layer = archivo_h5['embeddings'][:, layer_idx, :].astype(np.float32)
+
+            # ---  GLOBAL TRAINING ---
+            # We unify all training indices from all active regions.
+            # This ensures the model learns from the broadest possible spatial context.
             
-            #Training and test sets of embeddings for this layer and this region
-            X_tr = dset[idx_tr, layer_idx, :]
-            X_te = dset[idx_te, layer_idx, :]
-            
-            #We get the latitude and longitude of the cities in the train and test sets
-            y_tr = dataset.iloc[idx_tr][["Lat", "Lon"]].values
-            y_te = dataset.iloc[idx_te][["Lat", "Lon"]].values
+            idx_tr_unificado = np.concatenate([indices_split[reg][0] for reg in names_reg])
+
+            X_tr = actual_layer[idx_tr_unificado, :]
+            y_tr = dataset.iloc[idx_tr_unificado][["Lat", "Lon"]].values
 
             # LINEAR PROBE (Ridge)
             model_lin = Ridge(alpha=1.0)
             model_lin.fit(X_tr, y_tr) #training
-            predictions_linear = model_lin.predict(X_te) #test
-            results[reg_name]['lin'].append(r2_score(y_te, predictions_linear))
-            
-            # HAVERSINE DISTANCE IN KILOMETERS
-            if haversine:
-                mistake_distance = haversine_distance(y_te, predictions_linear)
-                mistake_layer = np.median(mistake_distance)
-                results[reg_name]['km'].append(mistake_layer)
 
             # NO LINEAR PROBE (MLP)
             if no_lineal:
                 model_non = MLPRegressor(
-                    hidden_layer_sizes=(256,), 
-                    activation='relu', 
+                    hidden_layer_sizes=(256,),
+                    activation='relu',
                     max_iter=200, #So that our computer is able to train the model in a reasonable time.
-                    early_stopping=True, 
+                    early_stopping=True,
                     random_state=42
                 )
-                model_non.fit(X_tr, y_tr)
-                results[reg_name]['non'].append(r2_score(y_te, model_non.predict(X_te)))
+                model_non.fit(X_tr, y_tr) #training
+
+            # --- EVALUATION  ---
+            # If 'names_reg' contains multiple regions, we iterate through them to evaluate spatial bias.
+            # Therefore, in the regional dataset, we will evaluate the globally-trained model on each region
+            # separately to detect spatial bias. But, in the dataset from the paper, we perform a single 
+            # global evaluation of the paper's results.
+            for reg_name in names_reg:
+
+                idx_te = indices_split[reg_name][1]
+
+                X_te = actual_layer[idx_te, :]
+                y_te = dataset.iloc[idx_te][["Lat", "Lon"]].values
+
+                # LINEAR PROBE (Ridge)
+                predictions_linear = model_lin.predict(X_te)
+                results[reg_name]['lin'].append(r2_score(y_te, predictions_linear))
+
+                # HAVERSINE DISTANCE IN KILOMETERS
+                if haversine:
+                    mistake_distance = haversine_distance(y_te, predictions_linear)
+                    mistake_layer = np.median(mistake_distance)
+                    results[reg_name]['km'].append(mistake_layer) 
+
+                # NO LINEAR PROBE (MLP)
+                if no_lineal:
+                    predictions_non = model_non.predict(X_te)
+                    results[reg_name]['non'].append(r2_score(y_te, predictions_non))
+
+            # --- MEMORY CLEANUP ---
+            del actual_layer
+            import gc
+            gc.collect()
 
     return results
