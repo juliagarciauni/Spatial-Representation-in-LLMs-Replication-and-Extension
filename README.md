@@ -1,23 +1,23 @@
 # Spatial Representation in LLMs: Replication and Extension
 
-This repository contains a replication and extension of the paper *"Language Models Represent Space and Time"* by Wes Gurnee and Max Tegmark.
+This repository contains a replication and extension of the paper *"Language Models Represent Space and Time"* by Wes Gurnee and Max Tegmark, ICLR 2024.
 
 The original study demonstrates that Large Language Models (LLMs) internally learn linear representations of geographic coordinates and temporal events. While the original authors focused primarily on the Llama-2 family, this project aims to verify their hypothesis on more modern architectures and extends the research with new physical metrics and geographical bias analyses.
 
 ## Replication
-Firstly, we replicated the methodology of the original paper. Using one of the official datasets, we extracted the hidden states of **Llama-3 (8B)** and trained both linear (Ridge regression) and non-linear (MLP) probes to predict the latitude and longitude of 5,000 global cities. Our results successfully confirm the original authors' hypothesis: the model encodes spatial geography in a highly linear manner, as the linear probe performs just as well as the non-linear one in the mid-to-late layers.
+Firstly, we replicated the methodology of the original paper. Using one of the official datasets, we extracted the hidden states of **Llama-3 (8B)** and **Mistral (7B)** and trained both linear (Ridge regression) and non-linear (MLP) probes to predict the latitude and longitude of 5,000 global cities. Our results successfully confirm the original authors' hypothesis: the model encodes spatial geography in a highly linear manner, as the linear probe performs just as well as the non-linear one in the mid-to-late layers.
 
 ## Main Contributions
 This project introduces the following contributions:
 
-* **Multi-Model Testing:** We ran the same experiment on Mistral (7B) and Qwen-2.5 (7B), checking both the models' performance and the linearity.
+* **Multi-Model Testing:** We ran the same experiment on Mistral (7B) and LLama-3 (8B).
 * **Physical Error Tracking (Haversine Distance):** To give the statistical accuracy ($R^2$) a physical meaning, we implemented the Haversine formula. This allows us to measure the median spatial prediction error in actual kilometers, providing a more intuitive understanding of the models' internal maps. 
 * **Geographical Bias Analysis:** We investigated if a model's spatial representation is biased by its origin. From the `worldcities` dataset, we classified cities into three regions (USA, Europe, and China) to evaluate if models perform significantly better at mapping cities located in their creators' geographic regions. 
 
 ## Project Structure
 
-* **`data_loader.py`:** Processes the paper's dataset (filtering to 5,000 cities) and the worldcities dataset, creating three new regional datasets by extracting cities from USA, Europe, and China. 
-* **`embeddings.py`:** Connects to HuggingFace to extract and store the hidden states (activations) of the models layer by layer using `.h5` files.
+* **`data_loader.py`:** Processes the paper's dataset (filtering to 5,000 cities) and the worldcities dataset.
+* **`embeddings.py`:** Extracts and persists the hidden states (activations) from the models' layers into .h5 files.
 * **`probes.py`:** Contains the core logic for training the Ridge and MLP regressors, as well as calculating the Haversine physical distance.
 * **`plotting.py`:** Generates all the evaluation plots. 
 * **`main_experiment.py`:** The main script that runs the data loading, extraction, probing and plotting sequentially. 
@@ -30,7 +30,7 @@ This section presents the empirical findings from our replication and extension 
 
 Following the methodology of the original study, we extracted the activations from the last token of each entity to evaluate the models' spatial representations. The results confirm the original thesis: both Llama-3 and Mistral develop genuine internal maps, achieving an $R^2 \approx 0.8$ coefficient in their middle layers and showing nearly identical behavior. 
 
-However, we observed that the precision of the linear probe drops considerably in the final layers. This decline likely occurs because the models shift their focus entirely toward predicting the next word, shifting focus away from maintaining the internal spatial map.
+This decline likely occurs because the final layers heavily prioritize next-token prediction, shifting away from maintaining a neatly organized internal spatial map. To output the correct word, the model compresses the feature space, collapsing the entire representation space into a narrow cone, a phenomenon known as anisotropy (Ethayarajh, "How Contextual are Contextualized Word Representations?", 2019). As the vectors lose their uniform spatial distribution, the embedded geographic features become linearly inseparable, causing the linear probe's performance to drop.
 
 ### 2. The Linearity Hypothesis
 <img width="1153" height="693" alt="Captura de pantalla 2026-03-29 145157" src="https://github.com/user-attachments/assets/5314f4c9-fd7b-4653-8dbc-5af80ecf0962" />
@@ -48,7 +48,7 @@ Interestingly, in the final layers, the MLP is capable of adapting to the spatia
 
 To provide a real-world dimension beyond the $R^2$ coefficient, we implemented the Haversine formula to calculate the actual distance in kilometers between the predicted and actual coordinates.
 
-In their optimal layers, the models achieved median errors between 1,500 and 2,000 km While this margin may seem high at a human scale, it is a remarkable result considering the immensity of the Earth's surface (510 million square kilometers), reinforcing the existence of a structured mental map rather than mere coordinate memorization.
+In their optimal layers, the models achieved median errors between 1,500 and 2,000 km. While this margin may seem high at a human scale, it is a remarkable result considering the immensity of the Earth's surface (510 million square kilometers), reinforcing the existence of a structured mental map rather than mere coordinate memorization.
 
 ### 4. Regional Bias and Data Volume Paradox
 <img width="770" height="482" alt="Captura de pantalla 2026-03-29 153938" src="https://github.com/user-attachments/assets/48b1964e-16a5-46a6-8cd7-a17f32466ff2" />
@@ -67,23 +67,22 @@ Firstly, we evaluated the models' layer-by-layer Haversine error across three di
 <img width="747" height="478" alt="Captura de pantalla 2026-03-29 153932" src="https://github.com/user-attachments/assets/ff407bc6-e55f-49a7-8cf5-e94c7c4f3523" />
 
 
-Then, we compared the best results of each model in each region. The initial results were surprising: Europe showed the lowest physical error, followed by China, with the US in last place.
+Then, we compared the best results of each model in each region. We observed no clear evidence of a geographic bias favoring the models' respective regions of origin. Instead, we observed a common geographic trend: all three models achieved their lowest average error in Europe. Beyond Europe, Llama-3 and Qwen performed slightly better in China than in the US, while Mistral showed better results in the US than in China. To understand why physical distance metrics are heavily dictated by the evaluated region rather than the model's origin, we identified two key factors:
 
-We identified two key factors explaining this phenomenon:
-* **Topographic Metric Sensitivity:** In a compact continent like Europe, a confusion between nearby cities results in a few kilometers of error. In contrast, in the vast expanses of the US or China, a small conceptual deviation translates into a penalty of thousands of kilometers.
-* **The Data Volume vs. Notoriety Paradox:** Counterintuitively, China yielded better results than the US despite the massive volume of Western data used in training. This is due to sample granularity: the median population of the evaluated cities in China was more than triple that of the US. The models were evaluated on well-documented urban centers in China, but were required to locate small rural towns in the US with much less digital presence.
+* **Topographic Metric Sensitivity:** The Haversine metric is more sensitive in vast territories. In compact regions like Europe, small mistakes result in low kilometer penalties. In the vast expanses of the US or China, the same conceptual deviation translates into much higher errors. This could explain why all models show higher physical precision in Europe.
+* **Demographic Granularity:** China’s results are comparable to the US despite the prevalence of Western training data. This similarity could be explained by city size: the median population in our China sample (68,670) is triple that of the US (19,235). Models more easily locate these prominent Chinese urban centers than smaller rural US towns in our dataset, which have a lower digital presence. 
 
 ## Installation and Setup
 To run this project locally or in Google Colab, you will need Python 3.8+ and the following dependencies. First, clone the repository:
 
 ```bash
-git clone [https://github.com/juliagarciauni/Spatial-Representation-in-LLMs-Replication-and-Extension.git](https://github.com/juliagarciauni/Spatial-Representation-in-LLMs-Replication-and-Extension.git)
+git clone https://github.com/juliagarciauni/Spatial-Representation-in-LLMs-Replication-and-Extension.git
 cd Spatial-Representation-in-LLMs-Replication-and-Extension
 ```
 Then, install the required libraries:
 ```bash
-pip install torch transformers pandas numpy scikit-learn scikit-learn-intelex h5py matplotlib tqdm bitsandbytes accelerate````
-**Note:**  To extract the embeddings, you will need access to a GPU and enough RAM/VRAM depending on the model quantization.
+pip install torch transformers pandas numpy scikit-learn scikit-learn-intelex h5py matplotlib tqdm bitsandbytes accelerate```
+**Note:**  To extract the embeddings, you will need access to a GPU and enough RAM/VRAM.
 
 ## Usage
 Once the dependencies are installed and the datasets are in the root folder, simply run the main script:
@@ -95,3 +94,4 @@ The script will automatically process the datasets, extract the embeddings, trai
 
 ## References
 * Wes Gurnee and Max Tegmark (2024). Language Models Represent Space and Time.
+* Ethayarajh (2019). How Contextual are Contextualized Word Representations?
