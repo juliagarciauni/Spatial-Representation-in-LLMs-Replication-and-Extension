@@ -36,8 +36,7 @@ def extract_embeddings(name_model, dataset, suffix, config=None):
     if os.path.exists(name_file):
         return
 
-    # We load the tokenizer and the model. The tokenizer is responsible for converting the city name into a format
-    # that the model can understand (tokens).
+    # We load the tokenizer and the model. 
     tokenizer = AutoTokenizer.from_pretrained(name_model)
     tokenizer.pad_token = tokenizer.eos_token # We set the padding token to be the same as the end of sequence token,
     #since some models do not have a specific padding token.
