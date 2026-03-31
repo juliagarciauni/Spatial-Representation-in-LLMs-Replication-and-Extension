@@ -2,8 +2,8 @@
 import os
 import torch
 from data_loader import load_worldcities_dataset, load_paper_dataset
-from embeddings import extract_embeddings, extraer_embeddings
-from probes import entrenar_desde_h5, train
+from embeddings import extract_embeddings
+from probes import train
 import plotting as plot
 
 
