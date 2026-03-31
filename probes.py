@@ -35,16 +35,16 @@ def haversine_distance(y_true, y_pred):
 
 # On the other hand, my contribution to the paper, as mentioned in the report, are the following:
 
-# 1. I have tried another two models to compare with the paper's results: Qwen and Mistral. Therefore, we will have the results of three different 
-# models (Llama3, Mistral and Qwen) to compare with the paper's results. We will use the dataset from the paper and probe the linearity. 
+# 1. I have tried another model to compare with the paper's results: Mistral-7B. Therefore, we will have the results of two different 
+# models (Llama-3-8B, Mistral-7B) to compare with the paper's results. We will use the dataset from the paper and probe the linearity. 
 
 # 2. I have added the option to calculate the Haversine distance in kilometers between the predicted coordinates 
 # and the true coordinates, to give it a physical meaning. This is controlled by the boolean parameter "haversine". 
-# We will use the dataset from the paper for this experiment and we will use the three models (Llama3, Mistral and Qwen) to compare the results.
+# We will use the dataset from the paper for this experiment and we will use the two models (Llama3, Mistral) to compare the results.
 
 # 3. Lastly, we will check if there is any spatial representation bias depending on the geographical origin of the models. 
 # To do this, we will use a different, regionally-balanced dataset (grouping cities into USA, Europe, and China) to evaluate 
-# if a model performs significantly better in its region of origin compared to the others. 
+# if a model performs significantly better in its region of origin compared to the others.  We will also use Qwen-2.5-7B.
 
 
 def train(ruta_h5, dataset, dataset_regional, haversine, no_lineal):
